@@ -1,0 +1,47 @@
+Steps for adding authentication using NEXT AUTH.
+
+Step-1. npm i next-auth
+
+Step-2. copy the give code snippet in "api\auth\[...nextauth.js]"
+        We can use any platform for authentication like github, google, facebook,etc...
+
+Step-3. Create a .env.local file to add secret keys using environment variables.
+
+Step-4. How to get key ?
+        Go the firebase.
+        add new project.
+        web
+        copy the code.
+        create a firebase.js at root level.
+        paste the code there (firebaseConfig only.)
+        npm i firsebase.
+        import firebase in the same file.
+        click authentication in firebase console
+        copy both the key and secret and paste it in the .env.local
+
+Step-5. Adding Sign in. Go the header section where signin button is present.
+        import { signIn, signOut, useSession } from "next-auth/client";
+
+        add onClick={ signIn }
+
+Step-6. Try to sign in IF ERROR
+        then go the prompted second link and dont close the current tab
+        in the prompted second link add localhost:3000 as trusted url
+        and add the first link also.
+
+Step-7. Adding signIn Status.
+        Go to the _app.js file and
+        import { Provider as AuthProvider } from "next-auth/client";
+        and wrap the whole app component with 
+        <AuthProvider session={pageProps.session}>
+            <Provider store={store}>
+                <Component {...pageProps} />
+            </Provider>
+        </AuthProvider>
+
+Step-8. Now to use session go the header section where sign in button is there
+        const [session] = useSession();
+
+        now you can use session.user._____ (name, email, image, etc...)
+        example - {session ? `Hello, ${session.user.name}` : "Sign In"}
+        and change onClick to onClick={session ? signIn : signOut}
