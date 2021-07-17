@@ -1,0 +1,175 @@
+We will use STRIPE CHECKOUT SESSION
+
+How does this happens ?
+Ans - We pass the items from the basket to stripe.
+    Stripe returns a session and then we redirect the user to that url.
+    and after complete payment user come back to our website.
+
+Steps to add Stripe ---
+
+Step-1. Go the Stripe site and login. Find the public and secret key for your account.
+        Add STRIPE_PUBLIC_KEY and STRIPE_SECRET_KEY
+        to .env.local
+
+Step-2. Add role="link" to the checkout button.
+
+Step-3. Import in checkout.js to load the stripe session.
+        import { loadStripe } from "@stripe/stripe-js";
+        const stripePromise = loadStripe(process.env.stripe_public_key);
+
+Step-4. As we can not access the environment variable in the checkout.js
+        we first load it in the next-config.js As--
+          env: {
+            stripe_public_key: process.env.STRIPE_PUBLIC_KEY,
+          },
+
+        inside exports.
+        now we can access the environment variable as "stripe_public_key".
+        as used in step-3.
+Step-5. Now add the onClick listner to the checkout button and run a function
+        const createCheckoutSession = async () => {
+            const stripe = await stripePromise;
+
+            // Call the backend to create a cheout session...
+            const checkoutSession = await axios.post("/api/create-checkout-session", {
+            items: items,
+            email: session.user.email,
+            });
+        };
+
+Step-6. Now its time to work on backend side.
+        create a create-checkout-session.js inside api folder next to auth folder.
+
+        const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
+
+        export default async (req, res) => {
+        const { items, email } = req.body;
+
+        console.log(items);
+        console.log(email);
+        };
+
+Step-7. But Stripe accepts product details in a specific format.
+        Therefore, we need to transform out data into there format.
+
+          const transformedItems = items.map((item) => ({
+                description: item.description,
+                quantity: 1,
+                price_data: {
+                currency: "inr",
+                unit_amount: 100 * item.price, // As calculation is in sub currency.
+                product_data: {
+                    name: item.title,
+                    images: [item.image],
+                },
+                },
+            }));
+
+Step-8. Below this code add ... (for creating a stripe session)
+                const session = await stripe.checkout.sessions.create({
+                payment_method_types: ["card"],
+                shipping_rates: [__ADD ID OF SHIPPING RATE__],
+                shipping_address_collection: {
+                allowed_countries: ["IN", "GB", "US", "CA"],
+                },
+                line_items: transformedItems,
+                mode: "payment",
+                success_url: `${process.env.HOST}/success`,
+                cancel_url: `${process.env.HOST}/checkout`,
+                metadata: {
+                email,
+                images: JSON.stringify(items.map((item) => item.image)),
+                },
+                });
+
+                res.status(200).json({ id: session.id });
+
+Step-9. Now write code for the response in frontend.
+          const createCheckoutSession = async () => {
+                const stripe = await stripePromise;
+
+                // Call the backend to create a cheout session...
+                const checkoutSession = await axios.post("/api/create-checkout-session", {
+                items: items,
+                email: session.user.email,
+                });
+
+                // Redirect the user to stripe checkout
+                const result = await stripe.redirectToCheckout({
+                sessionId: checkoutSession.data.id,
+                });
+
+                if (result.error) {
+                alert(result.error.message);
+                }
+          }
+
+Step-10. Now check by running it on local host. If Error occured.
+        Check ---
+        1. The public key and secret key copied is correct or not.
+        2. shipping rate id is correct or not.
+        3. You have added your bussiness.
+        4. To check/test stripe functionality use 4242 as dummy card numbers.
+        5. After successfull payment check it on product section in stripe website.
+
+Step-11. Time to add web hooks :
+         Why we need that ?
+         On successfull payment wee want to store the ordered products in some database.
+         To achieve this functionality we will use web hooks.
+         This web hook will store the order data in the database and then user will be redirected to the success page.
+
+Step-12. To add web hook we need to download stripe cli in our machine.
+        To Download ---
+        1. Google stripe cli
+        2. Download for windows and unzip
+        3. open cmd and run that file frome there.
+        4. to check/test the stripe cli type stripe and enter
+
+Step-13. open cmd and do stripe login
+         check the key to be same and check out the right store name.
+
+Step-14. Create a webhook.js in api folder.
+         now after login connect localhost to stripe.
+         stripe listen --forward-to localhost:3000/api/webhook
+         
+         copy the given secret in environment variable.
+         secret looks like this - whsec_pAXEE7plln4lqUJuFSvx0vViUAWvKOEY
+         // this secret may change when terminal dies.
+
+Step-15. in the webhook.js
+         export default async (req, res) => {
+                if (req.method === "POST") {
+                } else {
+                console.log("we only support POST method.");
+                }
+        };
+
+Step-16. Now we need to install micro and firebase-admin
+         npm install micro
+         npm install firebase-admin // Node.js dependency for server side
+
+         and import them
+         import { buffer } from "micro";
+         import * as admin from "firebase-admin";
+
+Step-17. But our webhook does not know about our firebase admin account.
+         So we need to go to our project settings and click to Generate new private key option.
+         Copy the .json file project folder at root level and rename it to permissions.json.
+
+Step-18. Now back to webhook.js
+         const serviceAccount = require("./../../../permissions.json");
+
+         copy the rest of the code ... which includes 
+         1. secure connection to firebase firestore from backend.
+         2. establish connection to stripe.
+         3. Inside If(POST) verify the event posted from stripe
+         4. handle the chekout complete session
+         5. full filling the order.
+         6. setting config details for bodyParser (as false).
+
+Step-19. Now check everything is working or not.
+         Check firestore for the order details.
+
+BOOM --- Mission Complete.
+
+
