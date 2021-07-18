@@ -32,3 +32,7 @@ yarn-error.log*
 
 # vercel
 .vercel
+
+#notes
+auth.note.txt
+stripe.note.txt
